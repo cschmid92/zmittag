@@ -18,23 +18,23 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   onChange,
   capabilities,
   candidateCount,
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
+}: FilterPanelProps) => {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
 
-  const togglePriceLevel = (level: number) => {
-    let current = [...params.priceLevels];
+  const togglePriceLevel = (level: number): void => {
+    let current: number[] = [...params.priceLevels];
     if (current.includes(level)) {
       if (current.length > 1) {
-        current = current.filter((l) => l !== level);
+        current = current.filter((l: number) => l !== level);
       }
     } else {
       current.push(level);
-      current.sort();
+      current.sort((a: number, b: number) => a - b);
     }
     onChange({ ...params, priceLevels: current });
   };
 
-  const resetToDefault = () => {
+  const resetToDefault = (): void => {
     onChange(DEFAULT_SEARCH_PARAMS);
   };
 
@@ -73,7 +73,9 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
               step={250}
               className="range-slider"
               value={params.radius}
-              onChange={(e) => onChange({ ...params, radius: parseInt(e.target.value, 10) })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                onChange({ ...params, radius: parseInt(e.target.value, 10) })
+              }
             />
           </div>
 
@@ -104,7 +106,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                   className="range-slider"
                   disabled={!capabilities.hasRating}
                   value={params.minRating}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     onChange({ ...params, minRating: parseFloat(e.target.value) })
                   }
                 />
@@ -122,7 +124,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                   className="range-slider"
                   disabled={!capabilities.hasReviewCount}
                   value={params.minReviews}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     onChange({ ...params, minReviews: parseInt(e.target.value, 10) })
                   }
                 />
@@ -142,7 +144,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
               )}
             </div>
             <div style={{ display: 'flex', gap: '0.4rem', paddingTop: '0.25rem' }}>
-              {[1, 2, 3, 4].map((tier) => {
+              {[1, 2, 3, 4].map((tier: number) => {
                 const isSelected = params.priceLevels.includes(tier);
                 return (
                   <button
@@ -183,7 +185,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
               className="text-input"
               disabled={!capabilities.hasCuisines}
               value={params.cuisines[0] || ''}
-              onChange={(e) =>
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                 onChange({
                   ...params,
                   cuisines: e.target.value ? [e.target.value] : [],
@@ -201,7 +203,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                 'Mexican',
                 'French',
                 'Asian',
-              ]).map((c) => (
+              ]).map((c: string) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -225,7 +227,9 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                 type="checkbox"
                 disabled={!capabilities.hasOpenNow}
                 checked={params.openNow}
-                onChange={(e) => onChange({ ...params, openNow: e.target.checked })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onChange({ ...params, openNow: e.target.checked })
+                }
               />
               <span className="slider"></span>
             </label>
@@ -247,7 +251,9 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                 type="checkbox"
                 disabled={!capabilities.hasRating}
                 checked={params.favourHigherRated}
-                onChange={(e) => onChange({ ...params, favourHigherRated: e.target.checked })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onChange({ ...params, favourHigherRated: e.target.checked })
+                }
               />
               <span className="slider"></span>
             </label>

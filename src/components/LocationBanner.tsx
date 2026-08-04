@@ -19,12 +19,12 @@ export const LocationBanner: React.FC<LocationBannerProps> = ({
   isLoadingGeo,
   onRequestGeolocation,
   geoError,
-}) => {
-  const [isManual, setIsManual] = useState(false);
-  const [manualQuery, setManualQuery] = useState('');
-  const [isSearchingManual, setIsSearchingManual] = useState(false);
+}: LocationBannerProps) => {
+  const [isManual, setIsManual] = useState<boolean>(false);
+  const [manualQuery, setManualQuery] = useState<string>('');
+  const [isSearchingManual, setIsSearchingManual] = useState<boolean>(false);
 
-  const handleManualSubmit = async (e: React.FormEvent) => {
+  const handleManualSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (!manualQuery.trim()) return;
 
@@ -123,7 +123,7 @@ export const LocationBanner: React.FC<LocationBannerProps> = ({
             className="text-input"
             placeholder={t.enterCityOrAddress}
             value={manualQuery}
-            onChange={(e) => setManualQuery(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setManualQuery(e.target.value)}
             autoFocus
           />
           <button type="submit" className="btn-primary" disabled={isSearchingManual}>
