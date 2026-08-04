@@ -1,4 +1,4 @@
-import { LocationCoordinates, Restaurant, SearchParams } from '../types';
+import { LocationCoordinates, Restaurant } from '../types';
 
 export interface ProviderCapabilities {
   hasRating: boolean;

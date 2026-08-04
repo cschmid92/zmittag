@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Star, MapPin, Footprints, ExternalLink, Share2, ThumbsDown, RotateCcw, Clock, ShieldCheck } from 'lucide-react';
+import { Star, MapPin, Footprints, ExternalLink, Share2, ThumbsDown, RotateCcw, ShieldCheck } from 'lucide-react';
 import { LocationCoordinates, RelaxationStep, Restaurant } from '../domain/types';
 import { calculateDistanceMeters, estimateWalkingTimeMinutes, formatDistance } from '../domain/geoUtils';
 import { TranslationSchema } from '../i18n/translations';

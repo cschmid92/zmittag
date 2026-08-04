@@ -3,7 +3,6 @@ import { Language } from '../i18n/translations';
 
 const PARAMS_KEY = 'zmittag_search_params';
 const LANG_KEY = 'zmittag_language';
-const THEME_KEY = 'zmittag_theme';
 const PROVIDER_KEY = 'zmittag_provider';
 
 export function loadSavedParams(): SearchParams {
