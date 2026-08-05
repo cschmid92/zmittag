@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Star, MapPin, Footprints, ExternalLink, Share2, ThumbsDown, RotateCcw, ShieldCheck } from 'lucide-react';
+import { Star, MapPin, Footprints, ExternalLink, Share2, ThumbsDown, ShieldCheck } from 'lucide-react';
 import { LocationCoordinates, RelaxationStep, Restaurant } from '../domain/types';
 import { calculateDistanceMeters, estimateWalkingTimeMinutes, formatDistance } from '../domain/geoUtils';
 import { TranslationSchema } from '../i18n/translations';
@@ -11,7 +11,6 @@ interface ResultCardProps {
   providerName: string;
   cachedAt: number;
   appliedRelaxations: RelaxationStep[];
-  onRespin: () => void;
   onRejectAndRespin: (id: string) => void;
 }
 
@@ -22,7 +21,6 @@ export const ResultCard: React.FC<ResultCardProps> = ({
   providerName,
   cachedAt,
   appliedRelaxations,
-  onRespin,
   onRejectAndRespin,
 }) => {
   const [isCopied, setIsCopied] = useState(false);
@@ -107,7 +105,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({
         </div>
       )}
 
-      {/* Actions: Map Link, Respin, Reject, Share */}
+      {/* Actions: Map Link, Reject, Share */}
       <div className="result-actions">
         {restaurant.mapUrl && (
           <a
@@ -123,10 +121,6 @@ export const ResultCard: React.FC<ResultCardProps> = ({
         )}
 
         <div className="action-row">
-          <button className="btn-secondary" onClick={onRespin}>
-            <RotateCcw size={16} />
-            <span>{t.respin}</span>
-          </button>
           <button
             className="btn-secondary"
             style={{ borderColor: 'var(--accent-warning)', color: 'var(--accent-warning)' }}
