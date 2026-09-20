@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { AlertCircle } from 'lucide-react';
 import {
   DEFAULT_SEARCH_PARAMS,
   LocationCoordinates,
@@ -43,6 +44,7 @@ export const App: React.FC = () => {
   });
   const [isLoadingGeo, setIsLoadingGeo] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // Search Parameters State (Persisted in LocalStorage)
   const [params, setParams] = useState<SearchParams>(loadSavedParams);
@@ -135,9 +137,11 @@ export const App: React.FC = () => {
       .then(({ places }) => {
         const res = filterCandidates(places, location, params, provider.capabilities);
         setCandidateCount(res.candidateSet.length);
+        setApiError(null);
       })
-      .catch((err) => {
+      .catch((err: any) => {
         console.warn('Candidate count fetch error:', err);
+        setApiError(err.message || 'Failed to connect to Google Maps API');
       });
   }, [location, params]);
 
@@ -149,6 +153,7 @@ export const App: React.FC = () => {
     }
 
     setIsSpinning(true);
+    setApiError(null);
     spinCancelRef.current = false;
 
     try {
@@ -207,7 +212,8 @@ export const App: React.FC = () => {
         setAriaAnnouncement(t.ariaNoResultsAnnouncement);
       }
     } catch (err: any) {
-      alert(`Google Maps Error: ${err.message || 'Failed to fetch places'}`);
+      const msg = err.message || 'Failed to fetch places from Google Maps';
+      setApiError(msg);
     } finally {
       setIsSpinning(false);
     }
@@ -258,8 +264,32 @@ export const App: React.FC = () => {
           ariaAnnouncement={ariaAnnouncement}
         />
 
+        {apiError && (
+          <div
+            className="card"
+            style={{
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              color: '#ef4444',
+              padding: '1rem',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.75rem',
+              fontSize: '0.9rem',
+              lineHeight: 1.5,
+            }}
+          >
+            <AlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <strong style={{ display: 'block', marginBottom: '0.2rem' }}>Google Maps Configuration Error</strong>
+              {apiError}
+            </div>
+          </div>
+        )}
+
         {/* Display Spin Result or Empty State */}
-        {spinResult && location && (
+        {spinResult && location && !apiError && (
           spinResult.selected ? (
             <ResultCard
               t={t}
