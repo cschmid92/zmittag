@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Star, MapPin, Footprints, ExternalLink, Share2, ThumbsDown, ShieldCheck } from 'lucide-react';
+import { Star, MapPin, Footprints, ExternalLink, Share2, Dices, ShieldCheck } from 'lucide-react';
 import { LocationCoordinates, RelaxationStep, Restaurant } from '../domain/types';
 import { calculateDistanceMeters, estimateWalkingTimeMinutes, formatDistance } from '../domain/geoUtils';
 import { TranslationSchema } from '../i18n/translations';
@@ -11,7 +11,7 @@ interface ResultCardProps {
   providerName: string;
   cachedAt: number;
   appliedRelaxations: RelaxationStep[];
-  onRejectAndRespin: (id: string) => void;
+  onRespin: (rejectedId: string) => void;
 }
 
 export const ResultCard: React.FC<ResultCardProps> = ({
@@ -21,7 +21,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({
   providerName,
   cachedAt,
   appliedRelaxations,
-  onRejectAndRespin,
+  onRespin,
 }) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -53,7 +53,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({
           </div>
         </div>
 
-        {/* FR9.4: Rating and review count MUST be shown together */}
+        {/* Rating and review count MUST be shown together */}
         {restaurant.rating !== undefined ? (
           <div className="rating-badge" title="Rating and review count">
             <Star size={16} fill="var(--accent-primary)" />
@@ -91,7 +91,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({
         )}
       </div>
 
-      {/* FR8.3: Applied Relaxation Notices */}
+      {/* Applied Relaxation Notices */}
       {appliedRelaxations.length > 0 && (
         <div className="relaxation-notice">
           <strong>{t.appliedRelaxationNotice}</strong>
@@ -105,7 +105,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({
         </div>
       )}
 
-      {/* Actions: Map Link, Reject, Share */}
+      {/* Actions: Map Link, Respin, Share */}
       <div className="result-actions">
         {restaurant.mapUrl && (
           <a
@@ -123,11 +123,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({
         <div className="action-row">
           <button
             className="btn-secondary"
-            style={{ borderColor: 'var(--accent-warning)', color: 'var(--accent-warning)' }}
-            onClick={() => onRejectAndRespin(restaurant.id)}
+            onClick={() => onRespin(restaurant.id)}
           >
-            <ThumbsDown size={16} />
-            <span>{t.rejectAndRespin}</span>
+            <Dices size={16} />
+            <span>{t.respin}</span>
           </button>
           <button className="btn-secondary" onClick={handleShare}>
             <Share2 size={16} />

@@ -5,7 +5,6 @@ export interface TranslationSchema {
   appSubtitle: string;
   spinButton: string;
   spinning: string;
-  rejectAndRespin: string;
   respin: string;
   filters: string;
   location: string;
@@ -36,11 +35,13 @@ export interface TranslationSchema {
   appliedRelaxationNotice: string;
   noResultsTitle: string;
   retry: string;
-  demoModeNotice: string;
-  provider: string;
-  demoProvider: string;
-  osmProvider: string;
   resetFilters: string;
+  apiKeyRequiredTitle: string;
+  apiKeyRequiredDesc: string;
+  apiKeyInputLabel: string;
+  saveApiKey: string;
+  configureApiKey: string;
+  apiKeyConfigured: string;
   ariaSpinAnnouncement: (name: string, rating: string, reviews: number) => string;
   ariaNoResultsAnnouncement: string;
 }
@@ -51,7 +52,6 @@ export const translations: Record<Language, TranslationSchema> = {
     appSubtitle: 'One spin. One pick. Zero lunch arguments.',
     spinButton: 'Spin the Roulette',
     spinning: 'Finding your spot...',
-    rejectAndRespin: 'Reject & Respin',
     respin: 'Spin Again',
     filters: 'Filters & Preferences',
     location: 'Location',
@@ -82,11 +82,13 @@ export const translations: Record<Language, TranslationSchema> = {
     appliedRelaxationNotice: 'Filters automatically relaxed:',
     noResultsTitle: 'No Matching Restaurants Found',
     retry: 'Try Again',
-    demoModeNotice: 'Using static demo data for testing.',
-    provider: 'Data Provider',
-    demoProvider: 'Demo Provider (Offline)',
-    osmProvider: 'OpenStreetMap (Live)',
     resetFilters: 'Reset Filters to Default',
+    apiKeyRequiredTitle: 'Google Maps API Key Required',
+    apiKeyRequiredDesc: 'Please enter your Google Maps API key (with Maps JS & Places API enabled) to start finding restaurants.',
+    apiKeyInputLabel: 'Google Maps API Key',
+    saveApiKey: 'Save API Key',
+    configureApiKey: 'Google Maps Settings',
+    apiKeyConfigured: 'Google Maps API Key configured',
     ariaSpinAnnouncement: (name, rating, reviews) =>
       `Selected restaurant: ${name}, rated ${rating} out of 5 stars from ${reviews} reviews.`,
     ariaNoResultsAnnouncement: 'No restaurants found with current criteria. Check recommendations below.',
@@ -96,7 +98,6 @@ export const translations: Record<Language, TranslationSchema> = {
     appSubtitle: 'Ein Spin. Eine Entscheidung. Keine Mittagsdebatten.',
     spinButton: 'Roulette Drehen',
     spinning: 'Suche passendes Restaurant...',
-    rejectAndRespin: 'Ablehnen & Neu Drehen',
     respin: 'Nochmal Drehen',
     filters: 'Filter & Einstellungen',
     location: 'Standort',
@@ -127,11 +128,13 @@ export const translations: Record<Language, TranslationSchema> = {
     appliedRelaxationNotice: 'Filter wurden automatisch gelockert:',
     noResultsTitle: 'Kein passendes Restaurant gefunden',
     retry: 'Erneut versuchen',
-    demoModeNotice: 'Verwendet Demodaten zum Testen.',
-    provider: 'Datenanbieter',
-    demoProvider: 'Demo-Anbieter (Offline)',
-    osmProvider: 'OpenStreetMap (Live)',
     resetFilters: 'Filter auf Standard zurücksetzen',
+    apiKeyRequiredTitle: 'Google Maps API-Schlüssel erforderlich',
+    apiKeyRequiredDesc: 'Bitte gib deinen Google Maps API-Schlüssel (mit Maps JS & Places API) ein, um passende Restaurants zu finden.',
+    apiKeyInputLabel: 'Google Maps API-Schlüssel',
+    saveApiKey: 'Schlüssel Speichern',
+    configureApiKey: 'Google Maps Einstellungen',
+    apiKeyConfigured: 'Google Maps API-Schlüssel konfiguriert',
     ariaSpinAnnouncement: (name, rating, reviews) =>
       `Ausgewähltes Restaurant: ${name}, bewertet mit ${rating} von 5 Sternen aus ${reviews} Bewertungen.`,
     ariaNoResultsAnnouncement: 'Kein Restaurant mit den aktuellen Kriterien gefunden. Siehe Empfehlungen.',

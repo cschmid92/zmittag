@@ -1,5 +1,5 @@
 import React from 'react';
-import { Globe, Moon, Sun, Layers } from 'lucide-react';
+import { Globe, Moon, Sun } from 'lucide-react';
 import { Language, TranslationSchema } from '../i18n/translations';
 
 interface HeaderProps {
@@ -8,8 +8,6 @@ interface HeaderProps {
   onLanguageChange: (lang: Language) => void;
   theme: 'dark' | 'light';
   onThemeToggle: () => void;
-  activeProviderId: string;
-  onProviderChange: (id: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,8 +16,6 @@ export const Header: React.FC<HeaderProps> = ({
   onLanguageChange,
   theme,
   onThemeToggle,
-  activeProviderId,
-  onProviderChange,
 }) => {
   return (
     <header className="app-header">
@@ -31,19 +27,6 @@ export const Header: React.FC<HeaderProps> = ({
       </a>
 
       <div className="header-actions">
-        {/* Provider Switcher */}
-        <button
-          className="icon-btn"
-          onClick={() => onProviderChange(activeProviderId === 'demo' ? 'osm_overpass' : 'demo')}
-          title={`${t.provider}: ${activeProviderId === 'demo' ? t.demoProvider : t.osmProvider}`}
-          aria-label={`${t.provider}: ${activeProviderId === 'demo' ? t.demoProvider : t.osmProvider}`}
-        >
-          <Layers size={18} />
-          <span style={{ fontSize: '0.75rem', marginLeft: '4px' }}>
-            {activeProviderId === 'demo' ? 'DEMO' : 'OSM'}
-          </span>
-        </button>
-
         {/* Language Switcher */}
         <button
           className="icon-btn"

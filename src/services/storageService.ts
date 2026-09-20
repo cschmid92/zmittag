@@ -3,7 +3,6 @@ import { Language } from '../i18n/translations';
 
 const PARAMS_KEY = 'zmittag_search_params';
 const LANG_KEY = 'zmittag_language';
-const PROVIDER_KEY = 'zmittag_provider';
 
 export function loadSavedParams(): SearchParams {
   try {
@@ -49,21 +48,5 @@ export function saveLanguage(lang: Language): void {
     localStorage.setItem(LANG_KEY, lang);
   } catch (e) {
     console.error('Failed to save language to localStorage:', e);
-  }
-}
-
-export function loadSavedProvider(): string {
-  try {
-    return localStorage.getItem(PROVIDER_KEY) || 'demo';
-  } catch {
-    return 'demo';
-  }
-}
-
-export function saveProvider(providerId: string): void {
-  try {
-    localStorage.setItem(PROVIDER_KEY, providerId);
-  } catch (e) {
-    console.error('Failed to save provider to localStorage:', e);
   }
 }

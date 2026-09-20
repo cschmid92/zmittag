@@ -74,8 +74,8 @@ describe('spinEngine', () => {
       mockLoc,
       { ...DEFAULT_SEARCH_PARAMS, radius: 10000 },
       capabilities,
-      'demo',
-      'Demo Provider',
+      'google_places',
+      'Google Maps Places API',
       session,
       Date.now(),
       () => 0.5
@@ -97,8 +97,8 @@ describe('spinEngine', () => {
       mockLoc,
       { ...DEFAULT_SEARCH_PARAMS, radius: 500, minRating: 4.8 },
       capabilities,
-      'demo',
-      'Demo Provider',
+      'google_places',
+      'Google Maps Places API',
       session,
       Date.now(),
       () => 0.5
@@ -131,8 +131,8 @@ describe('spinEngine', () => {
       mockLoc,
       { ...DEFAULT_SEARCH_PARAMS, openNow: true, cuisines: ['Italian'] },
       capabilities,
-      'demo',
-      'Demo Provider',
+      'google_places',
+      'Google Maps Places API',
       { lastSuggestions: [], rejectedIds: new Set() },
       Date.now(),
       () => 0.5

@@ -6,8 +6,7 @@ import {
   SearchParams,
   SpinResult,
 } from './domain/types';
-import { DemoProvider } from './domain/providers/DemoProvider';
-import { OsmOverpassProvider } from './domain/providers/OsmOverpassProvider';
+import { GooglePlacesProvider } from './domain/providers/GooglePlacesProvider';
 import { executeSpin, SpinSessionState } from './domain/spinEngine';
 import { filterCandidates } from './domain/filterEngine';
 import { getLocationCellKey } from './domain/geoUtils';
@@ -16,10 +15,8 @@ import { Language, translations } from './i18n/translations';
 import {
   loadSavedLanguage,
   loadSavedParams,
-  loadSavedProvider,
   saveLanguage,
   saveParams,
-  saveProvider,
 } from './services/storageService';
 
 import { Header } from './components/Header';
@@ -29,23 +26,13 @@ import { RouletteSpinner } from './components/RouletteSpinner';
 import { ResultCard } from './components/ResultCard';
 import { EmptyState } from './components/EmptyState';
 
-// Provider Registry
-const demoProvider = new DemoProvider();
-const osmProvider = new OsmOverpassProvider();
-const providersMap = {
-  demo: demoProvider,
-  osm_overpass: osmProvider,
-};
+const provider = new GooglePlacesProvider();
 
 export const App: React.FC = () => {
   // Theme & i18n state
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [lang, setLang] = useState<Language>(loadSavedLanguage);
   const t = useMemo(() => translations[lang], [lang]);
-
-  // Active Provider State
-  const [activeProviderId, setActiveProviderId] = useState<string>(loadSavedProvider);
-  const activeProvider = providersMap[activeProviderId as keyof typeof providersMap] || demoProvider;
 
   // Location State (Default: Zurich Center fallback until user action)
   const [location, setLocation] = useState<LocationCoordinates | null>({
@@ -65,7 +52,7 @@ export const App: React.FC = () => {
     new Map()
   );
 
-  // Session Exclusion State (FR7)
+  // Session Exclusion State
   const [sessionState, setSessionState] = useState<SpinSessionState>({
     lastSuggestions: [],
     rejectedIds: new Set<string>(),
@@ -88,19 +75,13 @@ export const App: React.FC = () => {
     saveLanguage(newLang);
   };
 
-  const handleProviderChange = (newProviderId: string) => {
-    setActiveProviderId(newProviderId);
-    saveProvider(newProviderId);
-    setSpinResult(null);
-  };
-
   const handleThemeToggle = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
     document.documentElement.setAttribute('data-theme', nextTheme);
   };
 
-  // Browser Geolocation Acquisition (FR1: only on explicit action)
+  // Browser Geolocation Acquisition
   const handleRequestGeolocation = () => {
     if (!navigator.geolocation) {
       setGeoError(t.locationDenied);
@@ -128,12 +109,12 @@ export const App: React.FC = () => {
     );
   };
 
-  // Load places for current location (with 5-minute cache per cell key - FR4.2)
+  // Load places for current location (with 5-minute cache per cell key)
   const loadPlacesForLocation = async (
     loc: LocationCoordinates,
     radius: number
   ): Promise<{ places: Restaurant[]; cachedAt: number }> => {
-    const cellKey = `${activeProviderId}_${getLocationCellKey(loc, radius)}`;
+    const cellKey = `google_${getLocationCellKey(loc, radius)}`;
     const cached = placesCache.current.get(cellKey);
     const FIVE_MINS = 5 * 60 * 1000;
 
@@ -141,7 +122,7 @@ export const App: React.FC = () => {
       return cached;
     }
 
-    const fetched = await activeProvider.fetchPlaces(loc, radius);
+    const fetched = await provider.fetchPlaces(loc, radius);
     placesCache.current.set(cellKey, fetched);
     return fetched;
   };
@@ -150,14 +131,18 @@ export const App: React.FC = () => {
   const [candidateCount, setCandidateCount] = useState<number>(0);
   useEffect(() => {
     if (!location) return;
-    loadPlacesForLocation(location, params.radius).then(({ places }) => {
-      const res = filterCandidates(places, location, params, activeProvider.capabilities);
-      setCandidateCount(res.candidateSet.length);
-    });
-  }, [location, params, activeProviderId]);
+    loadPlacesForLocation(location, params.radius)
+      .then(({ places }) => {
+        const res = filterCandidates(places, location, params, provider.capabilities);
+        setCandidateCount(res.candidateSet.length);
+      })
+      .catch((err) => {
+        console.warn('Candidate count fetch error:', err);
+      });
+  }, [location, params]);
 
-  // Spin Trigger Engine (FR4, FR6, FR7, FR8)
-  const handleSpin = async () => {
+  // Spin Trigger Engine
+  const handleSpin = async (extraRejectedId?: string) => {
     if (!location) {
       handleRequestGeolocation();
       return;
@@ -167,20 +152,31 @@ export const App: React.FC = () => {
     spinCancelRef.current = false;
 
     try {
-      // Simulate non-blocking roulette animation (600ms)
+      // Non-blocking roulette animation delay (600ms)
       await new Promise((resolve) => setTimeout(resolve, 600));
       if (spinCancelRef.current) return;
 
       const { places, cachedAt } = await loadPlacesForLocation(location, params.radius);
 
+      let currentSessionState = sessionState;
+      if (extraRejectedId) {
+        const newRejected = new Set(sessionState.rejectedIds);
+        newRejected.add(extraRejectedId);
+        currentSessionState = {
+          ...sessionState,
+          rejectedIds: newRejected,
+        };
+        setSessionState(currentSessionState);
+      }
+
       const result = executeSpin(
         places,
         location,
         params,
-        activeProvider.capabilities,
-        activeProvider.id,
-        activeProvider.name,
-        sessionState,
+        provider.capabilities,
+        provider.id,
+        provider.name,
+        currentSessionState,
         cachedAt
       );
 
@@ -189,10 +185,10 @@ export const App: React.FC = () => {
       setSpinResult(result);
 
       if (result.selected) {
-        // Track last 10 suggestions (FR7.1)
+        // Track last 10 suggestions
         const updatedLast = [
           result.selected.id,
-          ...sessionState.lastSuggestions.filter((id) => id !== result.selected?.id),
+          ...currentSessionState.lastSuggestions.filter((id) => id !== result.selected?.id),
         ].slice(0, 10);
 
         setSessionState((prev) => ({
@@ -211,7 +207,7 @@ export const App: React.FC = () => {
         setAriaAnnouncement(t.ariaNoResultsAnnouncement);
       }
     } catch (err: any) {
-      alert(`Provider Error: ${err.message || 'Failed to fetch places'}`);
+      alert(`Google Maps Error: ${err.message || 'Failed to fetch places'}`);
     } finally {
       setIsSpinning(false);
     }
@@ -222,16 +218,8 @@ export const App: React.FC = () => {
     setIsSpinning(false);
   };
 
-  const handleRejectAndRespin = (id: string) => {
-    setSessionState((prev) => {
-      const newRejected = new Set(prev.rejectedIds);
-      newRejected.add(id);
-      return {
-        ...prev,
-        rejectedIds: newRejected,
-      };
-    });
-    handleSpin();
+  const handleRespin = (rejectedId: string) => {
+    handleSpin(rejectedId);
   };
 
   return (
@@ -242,8 +230,6 @@ export const App: React.FC = () => {
         onLanguageChange={handleLanguageChange}
         theme={theme}
         onThemeToggle={handleThemeToggle}
-        activeProviderId={activeProviderId}
-        onProviderChange={handleProviderChange}
       />
 
       <main style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -260,14 +246,14 @@ export const App: React.FC = () => {
           t={t}
           params={params}
           onChange={handleParamsChange}
-          capabilities={activeProvider.capabilities}
+          capabilities={provider.capabilities}
           candidateCount={candidateCount}
         />
 
         <RouletteSpinner
           t={t}
           isSpinning={isSpinning}
-          onSpin={handleSpin}
+          onSpin={() => handleSpin()}
           onCancel={handleCancelSpin}
           ariaAnnouncement={ariaAnnouncement}
         />
@@ -282,8 +268,7 @@ export const App: React.FC = () => {
               providerName={spinResult.providerName}
               cachedAt={spinResult.cachedAt}
               appliedRelaxations={spinResult.appliedRelaxations}
-              onRespin={handleSpin}
-              onRejectAndRespin={handleRejectAndRespin}
+              onRespin={handleRespin}
             />
           ) : (
             <EmptyState
@@ -296,7 +281,7 @@ export const App: React.FC = () => {
       </main>
 
       <footer style={{ marginTop: 'auto', padding: '1.5rem 0', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-        Restaurant Roulette (zmittag) • Swiss revDSG & EU GDPR Compliant • No Tracking
+        Restaurant Roulette (zmittag) • Powered by Google Maps Places API • Swiss revDSG & EU GDPR Compliant
       </footer>
     </div>
   );
