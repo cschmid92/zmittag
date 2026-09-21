@@ -29,19 +29,59 @@ import { EmptyState } from './components/EmptyState';
 
 const provider = new GooglePlacesProvider();
 
+// Helper to reverse geocode lat/lng to actual city/neighborhood name
+const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+  if (typeof window !== 'undefined' && window.google && window.google.maps && window.google.maps.Geocoder) {
+    try {
+      const geocoder = new window.google.maps.Geocoder();
+      const res = await geocoder.geocode({ location: { lat, lng } });
+      if (res.results && res.results.length > 0) {
+        const components = res.results[0].address_components || [];
+        const locality = components.find((c: any) => c.types.includes('locality'))?.long_name;
+        const sublocality = components.find(
+          (c: any) => c.types.includes('sublocality') || c.types.includes('neighborhood')
+        )?.long_name;
+
+        if (sublocality && locality) {
+          return `${sublocality}, ${locality}`;
+        }
+        if (locality) {
+          return locality;
+        }
+        return res.results[0].formatted_address.split(',')[0];
+      }
+    } catch (e) {
+      console.warn('Google reverse geocode error:', e);
+    }
+  }
+
+  try {
+    const resp = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+    );
+    const data = await resp.json();
+    if (data && data.address) {
+      const city =
+        data.address.city ||
+        data.address.town ||
+        data.address.village ||
+        data.address.suburb ||
+        data.address.county;
+      if (city) return city;
+    }
+  } catch {}
+
+  return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+};
+
 export const App: React.FC = () => {
   // Theme & i18n state
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [lang, setLang] = useState<Language>(loadSavedLanguage);
   const t = useMemo(() => translations[lang], [lang]);
 
-  // Location State (Default: Zurich Center fallback until user action)
-  const [location, setLocation] = useState<LocationCoordinates | null>({
-    lat: 47.3769,
-    lng: 8.5417,
-    displayName: 'Zürich Center',
-    accuracy: 25,
-  });
+  // Location State (Default: null - requiring user geolocation or search)
+  const [location, setLocation] = useState<LocationCoordinates | null>(null);
   const [isLoadingGeo, setIsLoadingGeo] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -83,7 +123,7 @@ export const App: React.FC = () => {
     document.documentElement.setAttribute('data-theme', nextTheme);
   };
 
-  // Browser Geolocation Acquisition
+  // Browser Geolocation Acquisition with Reverse Geocoding
   const handleRequestGeolocation = () => {
     if (!navigator.geolocation) {
       setGeoError(t.locationDenied);
@@ -94,13 +134,19 @@ export const App: React.FC = () => {
     setGeoError(null);
 
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         setIsLoadingGeo(false);
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const accuracy = pos.coords.accuracy;
+
+        const displayName = await reverseGeocode(lat, lng);
+
         setLocation({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          displayName: 'Current Location',
+          lat,
+          lng,
+          accuracy,
+          displayName,
         });
       },
       (err) => {
@@ -149,7 +195,7 @@ export const App: React.FC = () => {
       });
   }, [location, params]);
 
-  // Spin Trigger Engine (Runs API fetch & pagination during spin animation)
+  // Spin Trigger Engine (Runs API fetch & pagination concurrently with min 3.0s roulette spin)
   const handleSpin = async (extraRejectedId?: string) => {
     if (!location) {
       handleRequestGeolocation();
@@ -161,11 +207,11 @@ export const App: React.FC = () => {
     spinCancelRef.current = false;
 
     try {
-      // Fetch places from Google Maps API during spinning animation
+      // 1. Fetch places concurrently with 3.0-second roulette spin animation
       const fetchPromise = loadPlacesForLocation(location, params.radius, params);
-      const animationDelay = new Promise((resolve) => setTimeout(resolve, 600));
+      const minSpinAnimation = new Promise((resolve) => setTimeout(resolve, 3000));
 
-      const [{ places, cachedAt }] = await Promise.all([fetchPromise, animationDelay]);
+      const [{ places, cachedAt }] = await Promise.all([fetchPromise, minSpinAnimation]);
 
       if (spinCancelRef.current) return;
 
