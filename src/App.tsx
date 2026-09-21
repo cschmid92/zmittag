@@ -111,12 +111,16 @@ export const App: React.FC = () => {
     );
   };
 
-  // Load places for current location (with 5-minute cache per cell key)
+  // Load places for current location (with 5-minute cache per cell key & filter hash)
   const loadPlacesForLocation = async (
     loc: LocationCoordinates,
-    radius: number
+    radius: number,
+    searchParams?: SearchParams
   ): Promise<{ places: Restaurant[]; cachedAt: number }> => {
-    const cellKey = `google_${getLocationCellKey(loc, radius)}`;
+    const filterHash = searchParams
+      ? `${searchParams.openNow}_${searchParams.priceLevels.join('-')}_${searchParams.cuisines.join('-')}`
+      : 'all';
+    const cellKey = `google_${getLocationCellKey(loc, radius)}_${filterHash}`;
     const cached = placesCache.current.get(cellKey);
     const FIVE_MINS = 5 * 60 * 1000;
 
@@ -124,7 +128,7 @@ export const App: React.FC = () => {
       return cached;
     }
 
-    const fetched = await provider.fetchPlaces(loc, radius);
+    const fetched = await provider.fetchPlaces(loc, radius, searchParams);
     placesCache.current.set(cellKey, fetched);
     return fetched;
   };
@@ -133,7 +137,7 @@ export const App: React.FC = () => {
   const [candidateCount, setCandidateCount] = useState<number>(0);
   useEffect(() => {
     if (!location) return;
-    loadPlacesForLocation(location, params.radius)
+    loadPlacesForLocation(location, params.radius, params)
       .then(({ places }) => {
         const res = filterCandidates(places, location, params, provider.capabilities);
         setCandidateCount(res.candidateSet.length);
@@ -145,7 +149,7 @@ export const App: React.FC = () => {
       });
   }, [location, params]);
 
-  // Spin Trigger Engine
+  // Spin Trigger Engine (Runs API fetch & pagination during spin animation)
   const handleSpin = async (extraRejectedId?: string) => {
     if (!location) {
       handleRequestGeolocation();
@@ -157,11 +161,13 @@ export const App: React.FC = () => {
     spinCancelRef.current = false;
 
     try {
-      // Non-blocking roulette animation delay (600ms)
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      if (spinCancelRef.current) return;
+      // Fetch places from Google Maps API during spinning animation
+      const fetchPromise = loadPlacesForLocation(location, params.radius, params);
+      const animationDelay = new Promise((resolve) => setTimeout(resolve, 600));
 
-      const { places, cachedAt } = await loadPlacesForLocation(location, params.radius);
+      const [{ places, cachedAt }] = await Promise.all([fetchPromise, animationDelay]);
+
+      if (spinCancelRef.current) return;
 
       let currentSessionState = sessionState;
       if (extraRejectedId) {

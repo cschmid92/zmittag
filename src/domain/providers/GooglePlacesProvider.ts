@@ -1,4 +1,4 @@
-import { LocationCoordinates, Restaurant } from '../types';
+import { LocationCoordinates, Restaurant, SearchParams } from '../types';
 import { IRestaurantProvider, ProviderCapabilities } from './types';
 
 declare global {
@@ -100,9 +100,75 @@ export class GooglePlacesProvider implements IRestaurantProvider {
     }
   }
 
+  /**
+   * Performs a single sector search on Google Places API with pagination up to 60 results.
+   */
+  private fetchSingleSector(
+    service: any,
+    centerLat: number,
+    centerLng: number,
+    subRadius: number,
+    params?: SearchParams
+  ): Promise<any[]> {
+    return new Promise((resolve) => {
+      const request: any = {
+        location: new window.google.maps.LatLng(centerLat, centerLng),
+        radius: Math.min(subRadius, 50000),
+        type: 'restaurant',
+      };
+
+      if (params) {
+        if (params.openNow) {
+          request.openNow = true;
+        }
+        if (params.priceLevels && params.priceLevels.length > 0) {
+          request.minPriceLevel = Math.min(...params.priceLevels);
+          request.maxPriceLevel = Math.max(...params.priceLevels);
+        }
+        if (params.cuisines && params.cuisines.length === 1) {
+          request.keyword = params.cuisines[0];
+        }
+      }
+
+      const sectorResults: any[] = [];
+
+      const handleResults = (results: any[], status: any, pagination: any) => {
+        if (
+          status === window.google.maps.places.PlacesServiceStatus.OK ||
+          status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS
+        ) {
+          if (results && results.length > 0) {
+            sectorResults.push(...results);
+          }
+
+          if (pagination && pagination.hasNextPage && sectorResults.length < 60) {
+            setTimeout(() => {
+              try {
+                pagination.nextPage();
+              } catch {
+                resolve(sectorResults);
+              }
+            }, 250);
+          } else {
+            resolve(sectorResults);
+          }
+        } else {
+          resolve(sectorResults);
+        }
+      };
+
+      try {
+        service.nearbySearch(request, handleResults);
+      } catch {
+        resolve(sectorResults);
+      }
+    });
+  }
+
   async fetchPlaces(
     location: LocationCoordinates,
-    radius: number
+    radius: number,
+    params?: SearchParams
   ): Promise<{ places: Restaurant[]; cachedAt: number }> {
     if (authFailed) {
       throw new Error(
@@ -134,85 +200,98 @@ export class GooglePlacesProvider implements IRestaurantProvider {
     mapDiv.style.display = 'none';
     document.body.appendChild(mapDiv);
 
-    return new Promise((resolve, reject) => {
-      const searchTimeout = setTimeout(() => {
-        if (document.body.contains(mapDiv)) document.body.removeChild(mapDiv);
-        reject(new Error('Google Places search request timed out (10s).'));
-      }, 10000);
+    try {
+      const service = new window.google.maps.places.PlacesService(mapDiv);
 
-      try {
-        const service = new window.google.maps.places.PlacesService(mapDiv);
-        const request = {
-          location: new window.google.maps.LatLng(location.lat, location.lng),
-          radius: Math.min(radius, 50000),
-          type: 'restaurant',
-        };
+      // Determine sub-sector centers for multi-grid sampling when radius >= 2500m
+      const sectorPoints: { lat: number; lng: number; subRadius: number }[] = [];
 
-        service.nearbySearch(request, (results: any[], status: any) => {
-          clearTimeout(searchTimeout);
-          if (document.body.contains(mapDiv)) document.body.removeChild(mapDiv);
+      if (radius >= 2500) {
+        const offsetLat = (radius * 0.45) / 111320;
+        const offsetLng = (radius * 0.45) / (111320 * Math.cos(location.lat * (Math.PI / 180)));
+        const subRadius = Math.max(1000, Math.round(radius * 0.55));
 
-          if (
-            status !== window.google.maps.places.PlacesServiceStatus.OK &&
-            status !== window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS
-          ) {
-            reject(new Error(`Google Places API search failed with status: ${status}`));
-            return;
-          }
+        sectorPoints.push(
+          { lat: location.lat, lng: location.lng, subRadius }, // Center
+          { lat: location.lat + offsetLat, lng: location.lng, subRadius }, // North
+          { lat: location.lat - offsetLat, lng: location.lng, subRadius }, // South
+          { lat: location.lat, lng: location.lng + offsetLng, subRadius }, // East
+          { lat: location.lat, lng: location.lng - offsetLng, subRadius } // West
+        );
+      } else {
+        sectorPoints.push({ lat: location.lat, lng: location.lng, subRadius: radius });
+      }
 
-          if (!results || results.length === 0) {
-            resolve({ places: [], cachedAt: Date.now() });
-            return;
-          }
+      // Query all sub-sectors in parallel
+      const sectorPromises = sectorPoints.map((point) =>
+        this.fetchSingleSector(service, point.lat, point.lng, point.subRadius, params)
+      );
 
-          const places: Restaurant[] = results.map((place: any) => {
-            const lat = place.geometry?.location?.lat() ?? location.lat;
-            const lng = place.geometry?.location?.lng() ?? location.lng;
-            const placeId = place.place_id || Math.random().toString();
-            const name = place.name || 'Unknown Restaurant';
+      const allSectorResultsArrays = await Promise.all(sectorPromises);
 
-            const excludeTypes = new Set([
-              'restaurant',
-              'food',
-              'point_of_interest',
-              'establishment',
-              'bar',
-              'cafe',
-              'store',
-            ]);
-            const rawCuisine = (place.types || []).find((t: string) => !excludeTypes.has(t));
-            const cuisine = rawCuisine
-              ? rawCuisine.replace(/_restaurant|_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+      if (document.body.contains(mapDiv)) {
+        document.body.removeChild(mapDiv);
+      }
+
+      // Flatten and deduplicate by place_id
+      const uniquePlacesMap = new Map<string, Restaurant>();
+
+      for (const rawResults of allSectorResultsArrays) {
+        for (const place of rawResults) {
+          const placeId = place.place_id || Math.random().toString();
+          if (uniquePlacesMap.has(placeId)) continue;
+
+          const lat = place.geometry?.location?.lat() ?? location.lat;
+          const lng = place.geometry?.location?.lng() ?? location.lng;
+          const name = place.name || 'Unknown Restaurant';
+
+          const excludeTypes = new Set([
+            'restaurant',
+            'food',
+            'point_of_interest',
+            'establishment',
+            'bar',
+            'cafe',
+            'store',
+          ]);
+          const rawCuisine = (place.types || []).find((t: string) => !excludeTypes.has(t));
+          const cuisine = rawCuisine
+            ? rawCuisine.replace(/_restaurant|_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+            : undefined;
+
+          const priceLevel =
+            typeof place.price_level === 'number' && place.price_level > 0
+              ? place.price_level
               : undefined;
 
-            const priceLevel = typeof place.price_level === 'number' && place.price_level > 0 ? place.price_level : undefined;
+          const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+            name
+          )}&query_place_id=${encodeURIComponent(placeId)}`;
 
-            const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-              name
-            )}&query_place_id=${encodeURIComponent(placeId)}`;
-
-            return {
-              id: placeId,
-              name,
-              lat,
-              lng,
-              rating: typeof place.rating === 'number' ? place.rating : undefined,
-              reviewCount: typeof place.user_ratings_total === 'number' ? place.user_ratings_total : undefined,
-              priceLevel,
-              openNow: place.opening_hours?.open_now,
-              cuisine,
-              address: place.vicinity || place.formatted_address || '',
-              mapUrl,
-            };
+          uniquePlacesMap.set(placeId, {
+            id: placeId,
+            name,
+            lat,
+            lng,
+            rating: typeof place.rating === 'number' ? place.rating : undefined,
+            reviewCount:
+              typeof place.user_ratings_total === 'number' ? place.user_ratings_total : undefined,
+            priceLevel,
+            openNow: place.opening_hours?.open_now,
+            cuisine,
+            address: place.vicinity || place.formatted_address || '',
+            mapUrl,
           });
-
-          resolve({ places, cachedAt: Date.now() });
-        });
-      } catch (err) {
-        clearTimeout(searchTimeout);
-        if (document.body.contains(mapDiv)) document.body.removeChild(mapDiv);
-        reject(err);
+        }
       }
-    });
+
+      const places = Array.from(uniquePlacesMap.values());
+      return { places, cachedAt: Date.now() };
+    } catch (err) {
+      if (document.body.contains(mapDiv)) {
+        document.body.removeChild(mapDiv);
+      }
+      throw err;
+    }
   }
 }
